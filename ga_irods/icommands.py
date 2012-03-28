@@ -1,23 +1,33 @@
+"""Originally written by Antoine deTorcy"""
+
 import os
 import shutil
 import subprocess
-import datetime
+import textwrap
+from cStringIO import StringIO
 
-"""Originally written by Antoine deTorcy"""
+class SessionException(Exception):
+    def __init__(self, exitcode, stdout, stderr):
+        super(SessionException, self).__init__(self, "Error processing IRODS request: {exitcode}. stderr follows:\n\n{stderr}".format(
+            exitcode=exitcode,stderr=stderr
+        ))
+        self.stdout = stdout
+        self.stderr = stderr
+        self.exitcode = exitcode
 
 
-class RodsSession(object):
+class Session(object):
     """A set of methods to start, close and manage multiple
     iRODS client sessions at the same time, using icommands.
     """
 
-    def __init__(self, topDir, icommandsDir, sessionId = 'default_session'):
-        self.topDir = topDir  # main directory to store session and log dirs
-        self.icommandsDir = icommandsDir  # where the icommand binaries are
-        self.sessionId = sessionId
-        self.sessionDir = "%s/%s" % (self.topDir, self.sessionId)
+    def __init__(self, root, icommands_path, session_id = 'default_session'):
+        self.root = root  # main directory to store session and log dirs
+        self.icommands_path = icommands_path  # where the icommand binaries are
+        self.session_id = session_id
+        self.session_path = "{root}/{session_id}".format(root=self.root, session_id=self.session_id)
 
-    def createEnvFiles(self, myEnv):
+    def create_environment(self, myEnv):
         """Creates session files in temporary directory.
 
         Argument myEnv must be instance of RodsEnv defined above.
@@ -25,46 +35,56 @@ class RodsSession(object):
         """
         # will have to add some testing for existing files
         # and acceptable argument values
-        os.makedirs(self.sessionDir)
+        os.makedirs(self.session_path)
 
         # create .irodsEnv file
-        envFileAbsPath = "%s/%s" % (self.sessionDir, ".irodsEnv")
-        ENVFILE = open(envFileAbsPath, "w")
-        ENVFILE.write("irodsHost '%s'\n" % myEnv.host)
-        ENVFILE.write("irodsPort '%s'\n" % myEnv.port)
-        ENVFILE.write("irodsDefResource '%s'\n" % myEnv.def_res)
-        ENVFILE.write("irodsHome '%s'\n" % myEnv.home_coll)
-        ENVFILE.write("irodsCwd '%s'\n" % myEnv.cwd)
-        ENVFILE.write("irodsUserName '%s'\n" % myEnv.username)
-        ENVFILE.write("irodsZone '%s'\n" % myEnv.zone)
-        ENVFILE.close()
+        env_path = "{session_path}/.irodsEnv".format(session_path=self.session_path)
+        with open(env_path, "w") as env_file:
+            env_file.write(textwrap.dedent("""\
+                irodsHost '{host}'
+                irodsPort '{port}'
+                irodsDefResource '{def_res}'
+                irodsHome '{home_coll}'
+                irodsCwd '{cwd}'
+                irodsUserName '{username}'
+                irodsZone '{zone}'
+            """).format(
+                host=myEnv.host,
+                port=myEnv.port,
+                def_res=myEnv.def_res,
+                home_coll=myEnv.home_coll,
+                username=myEnv.username,
+                cwd=myEnv.cwd,
+                zone=myEnv.zone
+            ))
 
-    def deleteEnvFiles(self):
+    def delete_environment(self):
         """Deletes temporary sessionDir recursively.
 
         To be called after self.runCmd('iexit').
         """
-        shutil.rmtree(self.sessionDir)
+        shutil.rmtree(self.session_path)
 
-    def sessionFileExists(self):
+    def session_file_exists(self):
         """Checks for the presence of .irodsEnv in temporary sessionDir.
         """
         try:
-            if '.irodsEnv' in os.listdir(self.sessionDir):
+            if os.path.exists(os.path.join(self.session_path, '.irodsEnv')):
                 return True
         except:
             return False
         else:
             return False
 
-    def getZoneName(self):
+    @property
+    def zone(self):
         """Returns current zone name from .irodsEnv or an empty string
         if the file does not exist.
         """
         zone_name = ""
-        if not self.sessionFileExists():
+        if not self.session_file_exists():
             return zone_name
-        envfilename = "%s/.irodsEnv" % (self.sessionDir)
+        envfilename = "%s/.irodsEnv" % (self.session_path)
         envfile = open(envfilename)
         for line in envfile:
             if 'irodsZone' in line:
@@ -72,14 +92,15 @@ class RodsSession(object):
         envfile.close()
         return zone_name
 
-    def getUserName(self):
+    @property
+    def username(self):
         """Returns current irodsUserName from .irodsEnv or an empty string
         if the file does not exist.
         """
         user_name = ""
-        if not self.sessionFileExists():
+        if not self.session_file_exists():
             return zone_name
-        envfilename = "%s/.irodsEnv" % (self.sessionDir)
+        envfilename = os.path.join(self.session_path, ".irodsEnv")
         envfile = open(envfilename)
         for line in envfile:
             if 'irodsUserName' in line:
@@ -87,62 +108,104 @@ class RodsSession(object):
         envfile.close()
         return user_name
 
-    def runCmd(self, icommand, argList=[]):
+    def run(self, icommand, data=None, *args):
         """Runs an icommand with optional argument list and
         returns tuple (stdout, stderr) from subprocess execution.
 
         Set of valid commands can be extended.
         """
-        valid_cmds = [  'iinit',
-                        'ils',
-                        'icd',
-                        'imkdir',
-                        'ichmod',
-                        'imeta',
-                        'iget',
-                        'iput',
-                        'irm',
-                        'iexit' ]
 
-        if icommand not in valid_cmds:
-            # second value represents STDERR
-            return ("","Invalid Command - '"+icommand+"' not allowed")
-
-        # should probably also add a condition to restrict
-        # possible values for icommandsDir
         myenv = os.environ.copy()
-        myenv['irodsEnvFile'] = "%s/.irodsEnv" % (self.sessionDir)
-        myenv['irodsAuthFileName'] = "%s/.irodsA" % (self.sessionDir)
+        myenv['irodsEnvFile'] = os.path.join(self.session_path, ".irodsEnv")
+        myenv['irodsAuthFileName'] = os.path.join(self.session_path, ".irodsA")
 
-        cmdStr = "%s/%s" % (self.icommandsDir, icommand)
-        argList = [cmdStr] + argList
+        cmdStr = os.path.join(self.icommands_path, icommand)
+        argList = [cmdStr]
+        argList.extend(args)
 
-        return subprocess.Popen(argList, stdout = subprocess.PIPE,\
-            stderr = subprocess.PIPE, env = myenv).communicate()
+        stdin=None
+        if data:
+            stdin = StringIO(data)
 
+        proc = subprocess.Popen(
+            argList,
+            stdin=stdin,
+            stdout = subprocess.PIPE,
+            stderr = subprocess.PIPE,
+            env = myenv
+        )
+        stdout, stderr = proc.communicate()
 
-    def runAdminCmd(self, icommand, argList=[]):
+        if proc.returncode:
+            raise SessionException(proc.returncode, stdout, stderr)
+        else:
+            return stdout, stderr
+
+    def run_safe(self, icommand, data=None, *args):
+        myenv = os.environ.copy()
+        myenv['irodsEnvFile'] = os.path.join(self.session_path, ".irodsEnv")
+        myenv['irodsAuthFileName'] = os.path.join(self.session_path, ".irodsA")
+
+        cmdStr = os.path.join(self.icommands_path, icommand)
+        argList = [cmdStr]
+        argList.extend(args)
+
+        stdin=None
+        if data:
+            print data
+            stdin = StringIO(data)
+
+        proc = subprocess.Popen(
+            argList,
+            stdin=stdin,
+            stdout = subprocess.PIPE,
+            stderr = subprocess.PIPE,
+            env = myenv
+        )
+        return proc
+
+    def runbatch(self, *icommands):
+        myenv = os.environ.copy()
+        myenv['irodsEnvFile'] = os.path.join(self.session_path, ".irodsEnv")
+        myenv['irodsAuthFileName'] = os.path.join(self.session_path, ".irodsA")
+        return_codes = []
+
+        for icommand, args in icommands:
+            cmdStr = os.path.join(self.icommands_path, icommand)
+            argList = [cmdStr]
+            argList.extend(args)
+
+            return_codes.append(subprocess.Popen(
+                argList,
+                stdout = subprocess.PIPE,
+                stderr = subprocess.PIPE,
+                env = myenv
+            ).communicate())
+        return return_codes
+
+    def admin(self, *args):
         """Runs the iadmin icommand with optional argument list and
         returns tuple (stdout, stderr) from subprocess execution.
         """
 
-        if icommand != 'iadmin':
-            # second value represents STDERR
-            return ("","Invalid Command - '"+icommand+"' not allowed")
-
         # should probably also add a condition to restrict
         # possible values for icommandsDir
         myenv = os.environ.copy()
-        myenv['irodsEnvFile'] = "%s/.irodsEnv" % (self.sessionDir)
-        myenv['irodsAuthFileName'] = "%s/.irodsA" % (self.sessionDir)
+        myenv['irodsEnvFile'] = "%s/.irodsEnv" % (self.session_path)
+        myenv['irodsAuthFileName'] = "%s/.irodsA" % (self.session_path)
 
-        cmdStr = "%s/%s" % (self.icommandsDir, icommand)
-        argList = [cmdStr] + argList
+        cmdStr = "{icommands}/iadmin".format(icommands=self.icommands_path)
 
-        return subprocess.Popen(argList, stdin = subprocess.PIPE,\
-            stdout = subprocess.PIPE, stderr = subprocess.PIPE,\
-            env = myenv).communicate("yes\n")
+        argList = [cmdStr]
+        argList.extend(args)
 
+        return subprocess.Popen(
+            argList,
+            stdin = "yes\n",
+            stdout = subprocess.PIPE,
+            stderr = subprocess.PIPE,
+            env = myenv
+        ).communicate()
 
 ### an example usage
 #def testsuite():
