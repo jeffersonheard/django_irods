@@ -38,7 +38,7 @@ things in an example view like so in your views.py::
         if not 'rodsenvironment' in request.session:
             # redirect to allow the user to select from his/her environments
         else:
-            stdout, stderr = itasks.ils(request.GET['path'])
+            stdout, stderr = itasks.ils.delay(request.GET['path']).get()
             return render_to_response('mytemplate.html', lsresults=stdout)
 
 For more information on icommands see the project documentation.
