@@ -1,10 +1,10 @@
-ga_irods - iRODS connector for Django with Celery
-#################################################
+ga_irods Package
+================
 
 `ga_irods`_ is a Django+Celery -> `iRODS`_ connector.  The idea is that you can
 use this module to write webapps that call a data grid (iRODS) in a web-scale
 manner.  Every iCommand is a `Celery`_ task.  All iRODS environments are stored
-as model instances in a database.
+as model instances in a database.  
 
 .. _iRODS: http://www.irods.org
 .. _Celery: http://www.celeryproject.org
@@ -28,7 +28,7 @@ celeryd is running and that django-celery is installed and listed in
 INSTALLED_APPS.
 
 Once environments are setup, you can write a webapp that manipulates iRODS.  One
-might attach a RodsEnvironment to a session object, then use this to accomplish
+might attach a RodsEnvironment to a session object, then use this to accomplish 
 things in an example view like so in your views.py::
 
     from ga_irods import tasks as itasks
@@ -41,4 +41,37 @@ things in an example view like so in your views.py::
             stdout, stderr = itasks.ils(request.GET['path'])
             return render_to_response('mytemplate.html', lsresults=stdout)
 
-For more information on icommands see the project documentation.
+All icommands are available.  See the documentation on the mod:`tasks` module below.
+
+:mod:`icommands` Module
+-----------------------
+
+.. automodule:: ga_irods.icommands
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+:mod:`models` Module
+--------------------
+
+.. automodule:: ga_irods.models
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+:mod:`tasks` Module
+-------------------
+
+.. automodule:: ga_irods.tasks
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+:mod:`views` Module
+-------------------
+
+.. automodule:: ga_irods.views
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
