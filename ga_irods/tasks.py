@@ -58,33 +58,43 @@ def test_callback(data):
     print data
 
 
+class RodsException(Exception):
+    pass
+
 class IRODSTask(Task):
+    abstract=True
 
-    @property
-    def session(self):
-        if not hasattr(self, '_session'):
-            self._session = Session("/tmp/ga_irods", settings.ICOMMANDS_DIR, session_id=uuid4())
-            self._session.create_environment(self._environment)
-            self._session.run('iinit', None, self._environment.auth)
-        return self._session
+    def __init__(self, *args, **kwargs):
+        super(IRODSTask, self).__init__(*args, **kwargs)
+        self._sessions = {}
+        self._mounted_collections = {}
+        self._mounted_names = {}
 
-    def mount(self, local_name, collection=None):
-        if not hasattr(self, '_mounted_collections'):
-            self._mounted_collections = {}
+    def session(self, environment):
+        environment = m.RodsEnvironment.objects.get(pk=environment)
+        if environment.pk not in self._sessions:
+            session = Session("/tmp/ga_irods", settings.ICOMMANDS_DIR, session_id=uuid4())
+            session.create_environment(environment)
+            session.run('iinit', None, environment.auth)
 
+            self._sessions[environment.pk] = session
+
+        return self._sessions[environment.pk]
+
+    def mount(self, environment, local_name, collection=None):
         if local_name not in self._mounted_collections:
             if collection:
-                self._session.run('icd', collection)
-            self._session.run('irodsFs', None, self.collection(local_name))
+                self.session(environment).run('icd', None, collection)
+
+            path = os.path.join(self.session(environment).session_path, local_name)
+            os.mkdir(path)
+            self.session(environment).run('irodsFs', None, path)
             self._mounted_collections[local_name] = collection
-        elif collection != self._mounted_collections[local_name]:
-            raise IRODSException("Trying to remount a directory with a different collection")
-
-        return self.collection(local_name)
-
+            self._mounted_names[local_name] = path
+        return self._mounted_names[local_name]
 
     def collection(self, name):
-        return os.path.join(self.session.root, name)
+        return self._mounted_names[name]
 
     def unmount(self, local_name):
         if not hasattr(self, '_mounted_collections'):
@@ -93,20 +103,16 @@ class IRODSTask(Task):
         if local_name in self._mounted_collections:
             envoy.run("fusermount -uz {local_name}".format(local_name=self.collection(local_name)))
 
-    def run(self, environment):
-        self._environment = m.RodsEnvironment.objects.get(pk=environment)
-
     def __del__(self):
-        if hasattr(self, '_mounted_collections'):
-            for name in self._mounted_collections:
-                self.unmount(name)
-        if hasattr(self, '_session'):
-            self._session.run('iexit')
-            self._session.delete_environment()
+        for name in self._mounted_names.keys():
+            self.unmount(name)
+        for session in self._sessions.values():
+            session.run('iexit')
+            session.delete_environment()
 
 CHUNK_SIZE=8192
 
-#@task
+@task
 class IGet(IRODSTask):
     def run(self, environment, path, callback=None, post=None, post_name=None, *options):
         """
@@ -179,11 +185,9 @@ class IGet(IRODSTask):
         :return:
         """
 
-        super(IGet, self).run(environment)
-
         options += ('-',) # we're redirecting to stdout.
 
-        proc = self.session.run_safe('iget', None, path, *options)
+        proc = self.session(environment).run_safe('iget', None, path, *options)
         tmp = tempfile.SpooledTemporaryFile()   # spool to disk if the iget is too large
         chunk = proc.stdout.read(CHUNK_SIZE)
         while chunk:
@@ -208,7 +212,7 @@ class IGet(IRODSTask):
 
 iget = registry.tasks[IGet.name]
 
-#@task
+@task
 class IPut(IRODSTask):
     def run(self, environment, path, data, *options):
         """
@@ -298,8 +302,6 @@ class IPut(IRODSTask):
         :param options: any of the above command line options.
         :return: stdout, stderr of the command.
         """
-        super(IPut, self).run(environment)
-
         tmp = tempfile.NamedTemporaryFile('w+b')
         tmp.write(data)
         tmp.flush()
@@ -307,10 +309,10 @@ class IPut(IRODSTask):
 
         options += (tmp.name, path)
 
-        return self.session.run('iput', None, *options)
+        return self.session(environment).run('iput', None, *options)
 iput = registry.tasks[IPut.name]
 
-#@task
+@task
 class ILs(IRODSTask):
     def run(self, environment, *options):
         """
@@ -327,11 +329,10 @@ class ILs(IRODSTask):
         :param options: any of the above command line options
         :return: stdout, stderr tuple of the command.
         """
-        super(ILs, self).run(environment)
-        return self.session.run('ils', None, *options)
+        return self.session(environment).run('ils', None, *options)
 ils = registry.tasks[ILs.name]
 
-#@task
+@task
 class IAdmin(IRODSTask):
     name = 'iadmin'
     def iadmin(self, environment, command, *options):
@@ -396,11 +397,11 @@ class IAdmin(IRODSTask):
         :param options:
         :return:
         """
-        super(IAdmin, self).run(environment)
-        return self.session.run('iadmin', None, command, *options)
+
+        return self.session(environment).run('iadmin', None, command, *options)
 iadmin = registry.tasks[IAdmin.name]
 
-
+@task
 class IBundle(IRODSTask):
     def run(self, environment, command, *options):
        """
@@ -470,230 +471,230 @@ class IBundle(IRODSTask):
        :param options:
        :return:
        """
-       super(IBundle, self).run(environment)
-       return self.session.run('iadmin', None, command, *options)
+
+       return self.session(environment).run('iadmin', None, command, *options)
 ibun = registry.tasks[IBundle.name]
 
-
+@task
 class IChksum(IRODSTask):
     
     def run(self, environment, *options):
-        super(IChksum, self).run(environment)
-        return self.session.run('ichksum', None, *options)
+
+        return self.session(environment).run('ichksum', None, *options)
 ichksum = registry.tasks[IChksum.name]
 
-
+@task
 class Ichmod(IRODSTask):
 
     def run(self, environment, *options):
-        super(Ichmod, self).run(environment)
-        return self.session.run('ichmod', None, *options)
+
+        return self.session(environment).run('ichmod', None, *options)
 ichmod = registry.tasks[Ichmod.name]
 
 
-
+@task
 class Icp(IRODSTask):
      def run(self, environment, *options):
-        super(Icp, self).run(environment)
-        return self.session.run('icp', None, *options)
+
+        return self.session(environment).run('icp', None, *options)
 icp = registry.tasks[Icp.name]
 
-
+@task
 class Iexecmd(IRODSTask):
     def run(self, environment, *options):
-        super(Iexecmd, self).run(environment)
-        return self.session.run('iexecmd', None, *options)
+
+        return self.session(environment).run('iexecmd', None, *options)
 iexecmd = registry.tasks[Iexecmd.name]
 
-
+@task
 class Ifsck(IRODSTask):
     def run(self, environment, *options):
-        super(Ifsck, self).run(environment)
-        return self.session.run('ifsck', None, *options)
+
+        return self.session(environment).run('ifsck', None, *options)
 ifsck = registry.tasks[Ifsck.name]
 
-
+@task
 class Ilocate(IRODSTask):
     def run(self, environment, *options):
-        super(Ilocate, self).run(environment)
-        return self.session.run('ilocate', None, *options)
+
+        return self.session(environment).run('ilocate', None, *options)
 ilocate = registry.tasks[Ilocate.name]
 
-
+@task
 class Ilsresc(IRODSTask):
     def run(self, environment, *options):
-        super(Ilsresc, self).run(environment)
-        return self.session.run('ilsresc', None, *options)
+
+        return self.session(environment).run('ilsresc', None, *options)
 ilsresc = registry.tasks[Ilsresc.name]
 
-
+@task
 class Imcoll(IRODSTask):
     def run(self, environment, *options):
-        super(Imcoll, self).run(environment)
-        return self.session.run('imcoll', None, *options)
+
+        return self.session(environment).run('imcoll', None, *options)
 imcoll = registry.tasks[Imcoll.name]
 
-
+@task
 class Imeta(IRODSTask):
     def run(self, environment, *options):
-        super(Imeta, self).run(environment)
-        return self.session.run('imeta', None, *options)
+
+        return self.session(environment).run('imeta', None, *options)
 imeta = registry.tasks[Imeta.name]
 
-
+@task
 class Imiscserverinfo(IRODSTask):
     def run(self, environment, *options):
-        super(Imiscserverinfo, self).run(environment)
-        return self.session.run('imiscserverinfo', None, *options)
+
+        return self.session(environment).run('imiscserverinfo', None, *options)
 imiscserverinfo = registry.tasks[Imiscserverinfo.name]
 
-
+@task
 class Imkdir(IRODSTask):
     def run(self, environment, *options):
-        super(Imkdir, self).run(environment)
-        return self.session.run('imkdir', None, *options)
+
+        return self.session(environment).run('imkdir', None, *options)
 imkdir = registry.tasks[Imkdir.name]
 
-
+@task
 class Imv(IRODSTask):
     def run(self, environment, *options):
-        super(Imv, self).run(environment)
-        return self.session.run('imv', None, *options)
+
+        return self.session(environment).run('imv', None, *options)
 imv = registry.tasks[Imv.name]
 
-
+@task
 class Iphybun(IRODSTask):
     def run(self, environment, *options):
-        super(Iphybun, self).run(environment)
-        return self.session.run('iphybun', None, *options)
+
+        return self.session(environment).run('iphybun', None, *options)
 iphybun = registry.tasks[Iphybun.name]
 
-
+@task
 class Iphymv(IRODSTask):
     def run(self, environment, *options):
-        super(Iphymv, self).run(environment)
-        return self.session.run('iphymv', None, *options)
+
+        return self.session(environment).run('iphymv', None, *options)
 iphymv = registry.tasks[Iphymv.name]
 
-
+@task
 class Ips(IRODSTask):
     def run(self, environment, *options):
-        super(Ips, self).run(environment)
-        return self.session.run('ips', None, *options)
+
+        return self.session(environment).run('ips', None, *options)
 ips = registry.tasks[Ips.name]
 
-
+@task
 class Iqdel(IRODSTask):
     def run(self, environment, *options):
-        super(Iqdel, self).run(environment)
-        return self.session.run('iqdel', None, *options)
+
+        return self.session(environment).run('iqdel', None, *options)
 iqdel = registry.tasks[Iqdel.name]
 
-
+@task
 class Iqmod(IRODSTask):
     def run(self, environment, *options):
-        super(Iqmod, self).run(environment)
-        return self.session.run('iqmod', None, *options)
+
+        return self.session(environment).run('iqmod', None, *options)
 iqmod = registry.tasks[Iqmod.name]
 
-
+@task
 class Iqstat(IRODSTask):
     def run(self, environment, *options):
-        super(Iqstat, self).run(environment)
-        return self.session.run('iqstat', None, *options)
+
+        return self.session(environment).run('iqstat', None, *options)
 iqstat = registry.tasks[Iqstat.name]
 
 
-
+@task
 class Iquest(IRODSTask):
     def run(self, environment, *options):
-        super(Iquest, self).run(environment)
-        return self.session.run('iquest', None, *options)
+
+        return self.session(environment).run('iquest', None, *options)
 iquest = registry.tasks[Iquest.name]
 
-
+@task
 class Iquota(IRODSTask):
     def run(self, environment, *options):
-        super(Iquota, self).run(environment)
-        return self.session.run('iquota', None, *options)
+
+        return self.session(environment).run('iquota', None, *options)
 iquota = registry.tasks[Iquota.name]
 
-
+@task
 class Ireg(IRODSTask):
     def run(self, environment, *options):
-        super(Ireg, self).run(environment)
-        return self.session.run('ireg', None, *options)
+
+        return self.session(environment).run('ireg', None, *options)
 ireg = registry.tasks[Ireg.name]
 
-
+@task
 class Irepl(IRODSTask):
     def run(self, environment, *options):
-        super(Irepl, self).run(environment)
-        return self.session.run('irepl', None, *options)
+
+        return self.session(environment).run('irepl', None, *options)
 irepl = registry.tasks[Irepl.name]
 
 
-
+@task
 class Irm(IRODSTask):
     def run(self, environment, *options):
-        super(Irm, self).run(environment)
-        return self.session.run('irm', None, *options)
+
+        return self.session(environment).run('irm', None, *options)
 irm = registry.tasks[Irm.name]
 
-
+@task
 class Irmtrash(IRODSTask):
     def run(self, environment, *options):
-        super(Irmtrash, self).run(environment)
-        return self.session.run('irmtrash', None, *options)
+
+        return self.session(environment).run('irmtrash', None, *options)
 irmtrash = registry.tasks[Irmtrash.name]
 
-
+@task
 class Irsync(IRODSTask):
     def run(self, environment, *options):
-        super(Irsync, self).run(environment)
-        return self.session.run('irsync', None, *options)
+
+        return self.session(environment).run('irsync', None, *options)
 irsync = registry.tasks[Irsync.name]
 
-
+@task
 class Irule(IRODSTask):
     def run(self, environment, *options):
-        super(Irule, self).run(environment)
-        return self.session.run('irule', None, *options)
+
+        return self.session(environment).run('irule', None, *options)
 irule = registry.tasks[Irule.name]
 
-
+@task
 class Iscan(IRODSTask):
     def run(self, environment, *options):
-        super(Iscan, self).run(environment)
-        return self.session.run('iscan', None, *options)
+
+        return self.session(environment).run('iscan', None, *options)
 iscan = registry.tasks[Iscan.name]
 
-
+@task
 class Isysmeta(IRODSTask):
     def run(self, environment, *options):
-        super(Isysmeta, self).run(environment)
-        return self.session.run('isysmeta', None, *options)
+
+        return self.session(environment).run('isysmeta', None, *options)
 isysmeta = registry.tasks[Isysmeta.name]
 
-
+@task
 class Itrim(IRODSTask):
     def run(self, environment, *options):
-        super(Itrim, self).run(environment)
-        return self.session.run('itrim', None, *options)
+
+        return self.session(environment).run('itrim', None, *options)
 itrim = registry.tasks[Itrim.name]
 
-
+@task
 class Iuserinfo(IRODSTask):
     def run(self, environment, *options):
-        super(Iuserinfo, self).run(environment)
-        return self.session.run('iuserinfo', None, *options)
+
+        return self.session(environment).run('iuserinfo', None, *options)
 iuserinfo = registry.tasks[Iuserinfo.name]
 
-
+@task
 class Ixmsg(IRODSTask):
     def run(self, environment, *options):
-        super(Ixmsg, self).run(environment)
-        return self.session.run('ixmsg', None, *options)
+
+        return self.session(environment).run('ixmsg', None, *options)
 ixmsg = registry.tasks[Ixmsg.name]
 
 

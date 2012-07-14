@@ -1,14 +1,6 @@
 from django.db import models as m
 from django.contrib.auth.models import User
 
-from icommands import Session
-from django.conf import settings
-import envoy
-import os
-import socket
-from uuid import uuid4
-# Create your models here.
-
 class RodsEnvironment(m.Model):
     owner = m.ForeignKey(User)
     host = m.CharField(verbose_name='Hostname', max_length=255)
@@ -19,3 +11,12 @@ class RodsEnvironment(m.Model):
     username = m.CharField(max_length=255)
     zone = m.TextField()
     auth = m.TextField(verbose_name='Password')
+
+    def __unicode__(self):
+        return u'{username}@{host}:{port}//{def_res}/{home_coll}'.format(
+            username = self.username,
+            host = self.host,
+            port = self.port,
+            def_res = self.def_res,
+            home_coll = self.home_coll
+        )
