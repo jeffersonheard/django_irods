@@ -47,7 +47,6 @@ from celery.task.sets import subtask
 from icommands import Session
 from ga_irods import models as m
 from uuid import uuid4
-import envoy
 import os
 import tempfile
 import requests
@@ -101,7 +100,7 @@ class IRODSTask(Task):
             return None
 
         if local_name in self._mounted_collections:
-            envoy.run("fusermount -uz {local_name}".format(local_name=self.collection(local_name)))
+            os.system("fusermount -uz {local_name}".format(local_name=self.collection(local_name)))
 
     def __del__(self):
         for name in self._mounted_names.keys():
