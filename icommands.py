@@ -119,6 +119,7 @@ class Session(object):
         user_name = ""
         if not self.session_file_exists():
             return user_name
+
         envfilename = os.path.join(self.session_path, ".irodsEnv")
         envfile = open(envfilename)
         for line in envfile:
@@ -231,41 +232,3 @@ if settings.IRODS_GLOBAL_SESSION:
 else:
     GLOBAL_SESSION = None
 
-### an example usage
-#def testsuite():
-#    working_path = "/Users/trel/Desktop/irodstesting/sessions"
-#    icommands_bin = "/Users/trel/Desktop/irodstesting/iRODS/clients/icommands/bin"
-#    session_id = datetime.datetime.now().strftime("%Y%m%dT%H%M%S.%f")
-#    userInfo = RodsEnv( 'trelpancake',
-#                        '1247',
-#                        'trelpancakeResource',
-#                        '/tempZone/home/rods',
-#                        '/tempZone/home/rods',
-#                        'rods',
-#                        'tempZone',
-#                        'rods')
-#    mysession = RodsSession(working_path, icommands_bin, session_id)
-#    mysession.createEnvFiles(userInfo)
-#
-#    mysession.runCmd('iinit', [userInfo.auth])
-#
-#    output =  mysession.runCmd('ils')
-#    print output[0]
-#
-#    print "\nimeta ls -d beetle.jpg:\n"
-#    output = mysession.runCmd('imeta',['ls', '-d', 'beetle.jpg'])
-#    print output[0]
-#
-#    mysession.runCmd('icd',['testcoll0'])
-#
-#    output =  mysession.runCmd('ils')
-#    print output[0]
-#
-#    mysession.runCmd('icd',['..'])
-#
-#    print "\nimeta ls -C testcoll0:\n"
-#    output = mysession.runCmd('imeta',['ls', '-C', 'testcoll0'])
-#    print output[0]
-#
-#    mysession.runCmd('iexit', ['full'])
-#    mysession.deleteEnvFiles()

@@ -43,7 +43,8 @@ what each does:
 
 from celery.task import Task
 from celery.task.sets import subtask
-from icommands import Session, GLOBAL_SESSION
+from icommands import Session, GLOBAL_SESSION, IRodsEnv
+import icommands
 from . import models as m
 from uuid import uuid4
 import os
@@ -52,10 +53,8 @@ import requests
 from django.conf import settings
 from collections import namedtuple
 
-
 class RodsException(Exception):
     pass
-
 
 
 class IRODSTask(Task):
@@ -131,6 +130,7 @@ CHUNK_SIZE=8192
 
 class IGet(IRODSTask):
     name = 'django_irods.tasks.iget'
+
     def run(self, environment, path, callback=None, post=None, post_name=None, *options):
         """
         Usage: iget [-fIKPQrUvVT] [-n replNumber] [-N numThreads] [-X restartFile]
@@ -226,7 +226,6 @@ class IGet(IRODSTask):
             }
         else:
             return tmp.read()
-
 
 class IPut(IRODSTask):
     name = 'django_irods.tasks.iput'
@@ -606,7 +605,5 @@ class Iuserinfo(IRODSTask):
 
 class Ixmsg(IRODSTask):
     name = 'django_irods.tasks.ixmsg'
-
-
 
 
