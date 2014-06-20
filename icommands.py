@@ -41,7 +41,10 @@ class Session(object):
         """
         # will have to add some testing for existing files
         # and acceptable argument values
-        os.makedirs(self.session_path)
+        try:
+            os.makedirs(self.session_path)
+        except OSError:
+            pass
 
         if not myEnv:
             myEnv = IRodsEnv(
@@ -76,6 +79,7 @@ class Session(object):
                 cwd=myEnv.cwd,
                 zone=myEnv.zone
             ))
+        return myEnv
 
     def delete_environment(self):
         """Deletes temporary sessionDir recursively.
@@ -142,18 +146,21 @@ class Session(object):
         argList = [cmdStr]
         argList.extend(args)
 
+        if icommand != 'iinit' and GLOBAL_SESSION:
+            self.run('iinit', None, GLOBAL_ENVIRONMENT.auth)
+
         stdin=None
         if data:
             stdin = StringIO(data)
 
         proc = subprocess.Popen(
             argList,
-            stdin=stdin,
+            stdin=subprocess.PIPE if stdin else None,
             stdout = subprocess.PIPE,
             stderr = subprocess.PIPE,
             env = myenv
         )
-        stdout, stderr = proc.communicate()
+        stdout, stderr = proc.communicate(input=data) if stdin else proc.communicate()
 
         if proc.returncode:
             raise SessionException(proc.returncode, stdout, stderr)
@@ -228,6 +235,8 @@ class Session(object):
 
 if settings.IRODS_GLOBAL_SESSION:
     GLOBAL_SESSION = Session()
+    GLOBAL_ENVIRONMENT = GLOBAL_SESSION.create_environment()
+    GLOBAL_SESSION.run('iinit', None, GLOBAL_ENVIRONMENT.auth)
 else:
     GLOBAL_SESSION = None
 
