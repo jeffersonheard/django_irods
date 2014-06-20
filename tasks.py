@@ -44,14 +44,13 @@ what each does:
 from celery.task import Task
 from celery.task.sets import subtask
 from icommands import Session, GLOBAL_SESSION, IRodsEnv
-import icommands
+
 from . import models as m
 from uuid import uuid4
 import os
 import tempfile
 import requests
 from django.conf import settings
-from collections import namedtuple
 
 class RodsException(Exception):
     pass
@@ -68,7 +67,7 @@ class IRODSTask(Task):
 
     def session(self, environment=None):
         if getattr(settings, 'IRODS_GLOBAL_SESSION', False):
-            return icommands.GLOBAL_SESSION
+            return GLOBAL_SESSION
 
         if environment is None:
             environment = IRodsEnv(
@@ -230,7 +229,7 @@ class IGet(IRODSTask):
 class IPut(IRODSTask):
     name = 'django_irods.tasks.iput'
 
-    def run(self, environment, path, data, *options):
+    def run(self, environment, data_is_file, path, data, *options):
         """
         Usage : iput [-abfIkKPQrTUvV] [-D dataType] [-N numThreads] [-n replNum]
                  [-p physicalPath] [-R resource] [-X restartFile] [--link]
@@ -318,14 +317,18 @@ class IPut(IRODSTask):
         :param options: any of the above command line options.
         :return: stdout, stderr of the command.
         """
-        tmp = tempfile.NamedTemporaryFile('w+b')
-        tmp.write(data)
-        tmp.flush()
-        tmp.seek(0)
+        if not data_is_file:
+            with tempfile.NamedTemporaryFile('w+b') as tmp:
+                tmp.write(data)
+                tmp.flush()
+                tmp.seek(0)
 
-        options += (tmp.name, path)
+                options += (tmp.name, path)
+                return self.session(environment).run('iput', None, *options)
+        else:
+            options += (data, path)
+            return self.session(environment).run('iput', None, *options)
 
-        return self.session(environment).run('iput', None, *options)
 
 class ILs(IRODSTask):
     """

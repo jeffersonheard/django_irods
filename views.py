@@ -20,9 +20,29 @@ def download(request, *args, **kwargs):
         raise KeyError('settings must have IRODS_GLOBAL_SESSION set if there is no environment object')
 
     options = ('-',) # we're redirecting to stdout.
-    path = kwargs['path']
+    path = request.GET['path']
 
     proc = session.run_safe('iget', None, path, *options)
-    response = HttpResponse(proc.stdout)
+    response = HttpResponse(proc.stdout.read())
     response['Content-Disposition'] = 'attachment; filename="{name}"'.format(name=path.split('/')[-1])
+    return response
+
+
+@login_required
+def list(request, *args, **kwargs):
+    if 'environment' in kwargs:
+        environment = int(kwargs['environment'])
+        environment = m.RodsEnvironment.objects.get(pk=environment)
+        session = Session("/tmp/django_irods", settings.IRODS_ICOMMANDS_PATH, session_id=uuid4())
+        session.create_environment(environment)
+        session.run('iinit', None, environment.auth)
+    elif getattr(settings, 'IRODS_GLOBAL_SESSION', False):
+        session = GLOBAL_SESSION
+    else:
+        raise KeyError('settings must have IRODS_GLOBAL_SESSION set if there is no environment object')
+
+    options = ('-',) # we're redirecting to stdout.
+
+    proc = session.run_safe('ils', None, *options)
+    response = HttpResponse(proc.stdout)
     return response
