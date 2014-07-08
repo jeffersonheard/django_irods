@@ -60,6 +60,9 @@ class Session(object):
             )
 
         # create .irodsEnv file
+        if not os.path.exists(self.session_path):
+            os.makedirs(self.session_path)
+        
         env_path = "{session_path}/.irodsEnv".format(session_path=self.session_path)
         with open(env_path, "w") as env_file:
             env_file.write(textwrap.dedent("""\
