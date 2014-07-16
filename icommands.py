@@ -237,7 +237,7 @@ class Session(object):
             env = myenv
         ).communicate()
 
-if settings.IRODS_GLOBAL_SESSION:
+if getattr(settings, 'IRODS_GLOBAL_SESSION', False) and getattr(settings, 'USE_IRODS', False):
     GLOBAL_SESSION = Session()
     GLOBAL_ENVIRONMENT = GLOBAL_SESSION.create_environment()
     GLOBAL_SESSION.run('iinit', None, GLOBAL_ENVIRONMENT.auth)
