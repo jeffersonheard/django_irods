@@ -6,7 +6,6 @@ from uuid import uuid4
 from django.conf import settings
 from django.http import HttpResponse
 
-@login_required
 def download(request, *args, **kwargs):
     if 'environment' in kwargs:
         environment = int(kwargs['environment'])
@@ -23,12 +22,11 @@ def download(request, *args, **kwargs):
     path = request.GET['path']
 
     proc = session.run_safe('iget', None, path, *options)
-    response = HttpResponse(proc.stdout.read())
+    response = HttpResponse(proc.stdout.read(), content_type='application-x/octet-stream')
     response['Content-Disposition'] = 'attachment; filename="{name}"'.format(name=path.split('/')[-1])
     return response
 
 
-@login_required
 def list(request, *args, **kwargs):
     if 'environment' in kwargs:
         environment = int(kwargs['environment'])
