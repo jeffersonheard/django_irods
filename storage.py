@@ -2,8 +2,10 @@ from django.conf import settings
 from django.core.files.storage import Storage
 from tempfile import NamedTemporaryFile
 from icommands import Session, GLOBAL_SESSION, SessionException
+from django.utils.deconstruct import deconstructible
 import os
 
+@deconstructible
 class IrodsStorage(Storage):
     def __init__(self, option=None):
         self.session = GLOBAL_SESSION if getattr(settings, 'IRODS_GLOBAL_SESSION', False) else Session()
