@@ -229,13 +229,21 @@ class Session(object):
         argList = [cmdStr]
         argList.extend(args)
 
-        return subprocess.Popen(
+        proc = subprocess.Popen(
             argList,
-            stdin = "yes\n",
+            stdin = None,
             stdout = subprocess.PIPE,
             stderr = subprocess.PIPE,
             env = myenv
-        ).communicate()
+        )
+
+        stdout, stderr = proc.communicate()
+
+        if proc.returncode:
+            raise SessionException(proc.returncode, stdout, stderr)
+        else:
+            return stdout, stderr
+
 
 if getattr(settings, 'IRODS_GLOBAL_SESSION', False) and getattr(settings, 'USE_IRODS', False):
     GLOBAL_SESSION = Session()
