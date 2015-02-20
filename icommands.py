@@ -150,9 +150,6 @@ class Session(object):
         argList = [cmdStr]
         argList.extend(args)
 
-        if icommand != 'iinit' and GLOBAL_SESSION:
-            self.run('iinit', None, GLOBAL_ENVIRONMENT.auth)
-
         stdin=None
         if data:
             stdin = StringIO(data)
@@ -251,4 +248,5 @@ if getattr(settings, 'IRODS_GLOBAL_SESSION', False) and getattr(settings, 'USE_I
     GLOBAL_SESSION.run('iinit', None, GLOBAL_ENVIRONMENT.auth)
 else:
     GLOBAL_SESSION = None
+    GLOBAL_ENVIRONMENT = None
 

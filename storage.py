@@ -1,16 +1,32 @@
 from django.conf import settings
 from django.core.files.storage import Storage
 from tempfile import NamedTemporaryFile
-from icommands import Session, GLOBAL_SESSION, SessionException
+from icommands import Session, GLOBAL_SESSION, GLOBAL_ENVIRONMENT, SessionException, IRodsEnv
 from django.utils.deconstruct import deconstructible
 import os
 
 @deconstructible
 class IrodsStorage(Storage):
     def __init__(self, option=None):
-        self.session = GLOBAL_SESSION if getattr(settings, 'IRODS_GLOBAL_SESSION', False) else Session()
-        if self.session != GLOBAL_SESSION:
-            self.session.run('iinit', None, self.session.create_environment().auth)
+        self.session = GLOBAL_SESSION
+        self.environment = GLOBAL_ENVIRONMENT
+
+    def set_user_session(self, username=None, password=None, userid=None):
+        homedir = "/"+settings.IRODS_ZONE+"/home/"+username
+        userEnv = IRodsEnv(
+               pk=userid,
+               host=settings.IRODS_HOST,
+               port=settings.IRODS_PORT,
+               def_res=settings.IRODS_DEFAULT_RESOURCE,
+               home_coll=homedir,
+               cwd=homedir,
+               username=username,
+               zone=settings.IRODS_ZONE,
+               auth=password
+            )
+        self.session = Session(session_id=userid)
+        self.environment = self.session.create_environment(myEnv=userEnv)
+        self.session.run('iinit', None, self.environment.auth)
 
     def _open(self, name, mode='rb'):
         tmp = NamedTemporaryFile()
