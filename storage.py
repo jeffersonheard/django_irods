@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.files.storage import Storage
 from tempfile import NamedTemporaryFile
+from django_irods import icommands
 from icommands import Session, GLOBAL_SESSION, GLOBAL_ENVIRONMENT, SessionException, IRodsEnv
 from django.utils.deconstruct import deconstructible
 import os
@@ -10,6 +11,7 @@ class IrodsStorage(Storage):
     def __init__(self, option=None):
         self.session = GLOBAL_SESSION
         self.environment = GLOBAL_ENVIRONMENT
+        icommands.ACTIVE_SESSION = self.session
 
     def set_user_session(self, username=None, password=None, userid=None):
         homedir = "/"+settings.IRODS_ZONE+"/home/"+username
@@ -27,6 +29,7 @@ class IrodsStorage(Storage):
         self.session = Session(session_id=userid)
         self.environment = self.session.create_environment(myEnv=userEnv)
         self.session.run('iinit', None, self.environment.auth)
+        icommands.ACTIVE_SESSION = self.session
 
     def _open(self, name, mode='rb'):
         tmp = NamedTemporaryFile()

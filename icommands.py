@@ -241,7 +241,6 @@ class Session(object):
         else:
             return stdout, stderr
 
-
 if getattr(settings, 'IRODS_GLOBAL_SESSION', False) and getattr(settings, 'USE_IRODS', False):
     GLOBAL_SESSION = Session()
     GLOBAL_ENVIRONMENT = GLOBAL_SESSION.create_environment()
@@ -250,3 +249,4 @@ else:
     GLOBAL_SESSION = None
     GLOBAL_ENVIRONMENT = None
 
+ACTIVE_SESSION = GLOBAL_SESSION

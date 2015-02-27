@@ -1,10 +1,10 @@
 # Create your views here.
-from django.contrib.auth.decorators import login_required
 from . import models as m
 from .icommands import Session, GLOBAL_SESSION
 from uuid import uuid4
 from django.conf import settings
 from django.http import HttpResponse
+from django_irods import icommands
 
 def download(request, *args, **kwargs):
     if 'environment' in kwargs:
@@ -15,6 +15,8 @@ def download(request, *args, **kwargs):
         session.run('iinit', None, environment.auth)
     elif getattr(settings, 'IRODS_GLOBAL_SESSION', False):
         session = GLOBAL_SESSION
+    elif icommands.ACTIVE_SESSION:
+        session = icommands.ACTIVE_SESSION
     else:
         raise KeyError('settings must have IRODS_GLOBAL_SESSION set if there is no environment object')
 
