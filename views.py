@@ -5,8 +5,17 @@ from uuid import uuid4
 from django.conf import settings
 from django.http import HttpResponse
 from django_irods import icommands
+from hs_core.views.utils import authorize
 
 def download(request, *args, **kwargs):
+    path = request.GET['path']
+    res_id = path.split('/')[0]
+    _, authorized, _ = authorize(request, res_id, edit=True, full=True, view=True, superuser=True, raises_exception=False)
+    if not authorized:
+        response = HttpResponse()
+        response.content = "<h1>You do not have permission to download this resource!!</h1>"
+        return response
+
     if 'environment' in kwargs:
         environment = int(kwargs['environment'])
         environment = m.RodsEnvironment.objects.get(pk=environment)
@@ -21,8 +30,6 @@ def download(request, *args, **kwargs):
         raise KeyError('settings must have IRODS_GLOBAL_SESSION set if there is no environment object')
 
     options = ('-',) # we're redirecting to stdout.
-    path = request.GET['path']
-
     proc = session.run_safe('iget', None, path, *options)
     response = HttpResponse(proc.stdout.read(), content_type='application-x/octet-stream')
     response['Content-Disposition'] = 'attachment; filename="{name}"'.format(name=path.split('/')[-1])
