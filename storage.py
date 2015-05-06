@@ -13,23 +13,26 @@ class IrodsStorage(Storage):
         self.environment = GLOBAL_ENVIRONMENT
         icommands.ACTIVE_SESSION = self.session
 
-    def set_user_session(self, username=None, password=None, userid=None):
-        homedir = "/"+settings.IRODS_ZONE+"/home/"+username
+    def set_user_session(self, username=None, password=None, host=settings.IRODS_HOST, port=settings.IRODS_PORT, def_res=None, zone=settings.IRODS_ZONE, userid=0, sessid='None'):
+        homedir = "/"+zone+"/home/"+username
         userEnv = IRodsEnv(
                pk=userid,
-               host=settings.IRODS_HOST,
-               port=settings.IRODS_PORT,
-               def_res=settings.IRODS_DEFAULT_RESOURCE,
+               host=host,
+               port=port,
+               def_res=def_res,
                home_coll=homedir,
                cwd=homedir,
                username=username,
-               zone=settings.IRODS_ZONE,
+               zone=zone,
                auth=password
             )
-        self.session = Session(session_id=userid)
+        self.session = Session(session_id=sessid)
         self.environment = self.session.create_environment(myEnv=userEnv)
         self.session.run('iinit', None, self.environment.auth)
         icommands.ACTIVE_SESSION = self.session
+
+    def download(self, name):
+        return self._open(name, mode='rb')
 
     def _open(self, name, mode='rb'):
         tmp = NamedTemporaryFile()
