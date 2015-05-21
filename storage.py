@@ -34,6 +34,37 @@ class IrodsStorage(Storage):
     def download(self, name):
         return self._open(name, mode='rb')
 
+    def runBagitRule(self, rule_name, input):
+        # SessionException will be raised from run() in icommands.py
+        self.session.run("irule", '-F', rule_name, input)
+
+    def zipup(self, in_name, out_name):
+        self.session.run("imkdir", None, '-p', out_name.rsplit('/',1)[0])
+        # SessionException will be raised from run() in icommands.py
+        self.session.run("ibun", '-cDzip', '-f', in_name, out_name)
+
+    def saveFile(self, from_name, to_name, create_directory = False):
+        """
+        Parameters:
+        :param
+        from_name: the temporary file name in local disk to be uploaded from.
+        to_name: the data object path in iRODS to be uploaded to
+        create_directory: create directory as needed when set to True. Default is False
+        Note if only directory needs to be created without saving a file, from_name should be empty
+        and to_name should have "/" as the last character
+        """
+        if create_directory:
+            splitstrs = to_name.rsplit('/', 1)
+            self.session.run("imkdir", None, '-p', splitstrs[0])
+            if len(splitstrs) <= 1:
+                return
+        if from_name:
+            try:
+                self.session.run("iput", None, from_name, to_name)
+            except:
+                self.session.run("iput", None, from_name, to_name) # IRODS 4.0.2, sometimes iput fails on the first try.  A second try seems to fix it.
+        return
+
     def _open(self, name, mode='rb'):
         tmp = NamedTemporaryFile()
         self.session.run("iget", None, '-f', name, tmp.name)
