@@ -60,9 +60,9 @@ class IrodsStorage(Storage):
                 return
         if from_name:
             try:
-                self.session.run("iput", None, from_name, to_name)
+                self.session.run("iput", None, '-f', from_name, to_name)
             except:
-                self.session.run("iput", None, from_name, to_name) # IRODS 4.0.2, sometimes iput fails on the first try.  A second try seems to fix it.
+                self.session.run("iput", None, '-f', from_name, to_name) # IRODS 4.0.2, sometimes iput fails on the first try.  A second try seems to fix it.
         return
 
     def _open(self, name, mode='rb'):
