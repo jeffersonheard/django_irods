@@ -36,12 +36,12 @@ class IrodsStorage(Storage):
 
     def runBagitRule(self, rule_name, input):
         # SessionException will be raised from run() in icommands.py
-        self.session.run("irule", '-F', rule_name, input)
+        self.session.run("irule", None, '-F', rule_name, input)
 
     def zipup(self, in_name, out_name):
         self.session.run("imkdir", None, '-p', out_name.rsplit('/',1)[0])
         # SessionException will be raised from run() in icommands.py
-        self.session.run("ibun", '-cDzip', '-f', in_name, out_name)
+        self.session.run("ibun", None, '-cDzip', '-f', out_name, in_name)
 
     def saveFile(self, from_name, to_name, create_directory = False):
         """
