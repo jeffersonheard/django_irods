@@ -78,9 +78,9 @@ class IrodsStorage(Storage):
             f.flush()
             f.close()
             try:
-                self.session.run("iput", None, f.name, name)
+                self.session.run("iput", None, '-f', f.name, name)
             except:
-                self.session.run("iput", None, f.name, name) # IRODS 4.0.2, sometimes iput fails on the first try.  A second try seems to fix it.
+                self.session.run("iput", None, '-f', f.name, name) # IRODS 4.0.2, sometimes iput fails on the first try.  A second try seems to fix it.
             os.unlink(f.name)
         return name
 
