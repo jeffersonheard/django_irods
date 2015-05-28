@@ -4,7 +4,7 @@ from .icommands import Session, GLOBAL_SESSION
 from uuid import uuid4
 import os
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import HttpResponse, FileResponse
 from django_irods import icommands
 from hs_core.views.utils import authorize
 
@@ -36,8 +36,9 @@ def download(request, *args, **kwargs):
 
     options = ('-',) # we're redirecting to stdout.
     proc = session.run_safe('iget', None, path, *options)
-    response = HttpResponse(proc.stdout.read(), content_type='application-x/octet-stream')
+    response = FileResponse(proc.stdout, content_type='application-x/octet-stream')
     response['Content-Disposition'] = 'attachment; filename="{name}"'.format(name=path.split('/')[-1])
+
     return response
 
 

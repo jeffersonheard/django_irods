@@ -1,10 +1,14 @@
+import os
+from tempfile import NamedTemporaryFile
+
+from django.utils.deconstruct import deconstructible
 from django.conf import settings
 from django.core.files.storage import Storage
-from tempfile import NamedTemporaryFile
+from django.core.urlresolvers import reverse
+
 from django_irods import icommands
 from icommands import Session, GLOBAL_SESSION, GLOBAL_ENVIRONMENT, SessionException, IRodsEnv
-from django.utils.deconstruct import deconstructible
-import os
+
 
 @deconstructible
 class IrodsStorage(Storage):
@@ -111,5 +115,12 @@ class IrodsStorage(Storage):
         return int(stdout[3])
 
     def url(self, name):
-        return "/django_irods/download/?path={name}".format(name=name)
+        bagit_path = getattr(settings, 'IRODS_BAGIT_PATH', 'bags')
+        bagit_postfix = getattr(settings, 'IRODS_BAGIT_POSTFIX', 'zip')
+
+        url_base = reverse('django_irods.views.download')
+        return "{url_base}?path={path}/{name}.{postfix}".format(url_base=url_base,
+                                                                  path=bagit_path,
+                                                                  name=name,
+                                                                  postfix=bagit_postfix)
 
