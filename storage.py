@@ -115,12 +115,5 @@ class IrodsStorage(Storage):
         return int(stdout[3])
 
     def url(self, name):
-        bagit_path = getattr(settings, 'IRODS_BAGIT_PATH', 'bags')
-        bagit_postfix = getattr(settings, 'IRODS_BAGIT_POSTFIX', 'zip')
-
-        url_base = reverse('django_irods.views.download')
-        return "{url_base}?path={path}/{name}.{postfix}".format(url_base=url_base,
-                                                                  path=bagit_path,
-                                                                  name=name,
-                                                                  postfix=bagit_postfix)
+        return reverse('django_irods.views.download', kwargs={'path': name})
 
