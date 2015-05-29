@@ -8,8 +8,11 @@ from django.http import HttpResponse, FileResponse
 from django_irods import icommands
 from hs_core.views.utils import authorize
 
-def download(request, *args, **kwargs):
-    path = request.GET['path']
+from rest_framework.decorators import api_view
+
+@api_view(['GET'])
+def download(request, path, *args, **kwargs):
+    
     split_path_strs = path.split('/')
     if split_path_strs[0] == 'bags':
         res_id = os.path.splitext(split_path_strs[1])[0]
