@@ -67,12 +67,12 @@ class Session(object):
         with open(env_path, "w") as env_file:
             env_pre_str = "{\n"
             env_str = textwrap.dedent("""\
-                "irods_host": "{host}"
-                "irods_port": {port}
-                "irods_default_resource": "{def_res}"
-                "irods_home": "{home_coll}"
-                "irods_cwd": "{cwd}"
-                "irods_user_name": "{username}"
+                "irods_host": "{host}",
+                "irods_port": {port},
+                "irods_default_resource": "{def_res}",
+                "irods_home": "{home_coll}",
+                "irods_cwd": "{cwd}",
+                "irods_user_name": "{username}",
                 "irods_zone_name": "{zone}"
             """).format(
                 host=myEnv.host,
@@ -147,8 +147,8 @@ class Session(object):
         """
 
         myenv = os.environ.copy()
-        myenv['irodsEnvFile'] = os.path.join(self.session_path, "irods_environment.json")
-        myenv['irodsAuthFileName'] = os.path.join(self.session_path, ".irodsA")
+        myenv['IRODS_ENVIRONMENT_FILE'] = os.path.join(self.session_path, "irods_environment.json")
+        myenv['IRODS_AUTHENTICATION_FILE'] = os.path.join(self.session_path, ".irodsA")
 
         cmdStr = os.path.join(self.icommands_path, icommand)
         argList = [cmdStr]
@@ -174,8 +174,8 @@ class Session(object):
 
     def run_safe(self, icommand, data=None, *args):
         myenv = os.environ.copy()
-        myenv['irodsEnvFile'] = os.path.join(self.session_path, "irods_environment.json")
-        myenv['irodsAuthFileName'] = os.path.join(self.session_path, ".irodsA")
+        myenv['IRODS_ENVIRONMENT_FILE'] = os.path.join(self.session_path, "irods_environment.json")
+        myenv['IRODS_AUTHENTICATION_FILE'] = os.path.join(self.session_path, ".irodsA")
 
         cmdStr = os.path.join(self.icommands_path, icommand)
         argList = [cmdStr]
@@ -197,8 +197,8 @@ class Session(object):
 
     def runbatch(self, *icommands):
         myenv = os.environ.copy()
-        myenv['irodsEnvFile'] = os.path.join(self.session_path, "irods_environment.json")
-        myenv['irodsAuthFileName'] = os.path.join(self.session_path, ".irodsA")
+        myenv['IRODS_ENVIRONMENT_FILE'] = os.path.join(self.session_path, "irods_environment.json")
+        myenv['IRODS_AUTHENTICATION_FILE'] = os.path.join(self.session_path, ".irodsA")
         return_codes = []
 
         for icommand, args in icommands:
@@ -222,8 +222,8 @@ class Session(object):
         # should probably also add a condition to restrict
         # possible values for icommandsDir
         myenv = os.environ.copy()
-        myenv['irodsEnvFile'] = "%s/irods_environment.json" % (self.session_path)
-        myenv['irodsAuthFileName'] = "%s/.irodsA" % (self.session_path)
+        myenv['IRODS_ENVIRONMENT_FILE'] = "%s/irods_environment.json" % (self.session_path)
+        myenv['IRODS_AUTHENTICATION_FILE'] = "%s/.irodsA" % (self.session_path)
 
         cmdStr = "{icommands}/iadmin".format(icommands=self.icommands_path)
 
