@@ -8,6 +8,9 @@ from django.http import HttpResponse, FileResponse
 from django_irods import icommands
 from hs_core.views.utils import authorize
 
+from rest_framework.decorators import api_view
+
+@api_view(['GET'])
 def download(request, path, *args, **kwargs):
     
     split_path_strs = path.split('/')
