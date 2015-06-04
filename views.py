@@ -1,14 +1,17 @@
 # Create your views here.
 from . import models as m
 from .icommands import Session, GLOBAL_SESSION
+from django_irods import icommands
+
 from uuid import uuid4
 import os
+
 from django.conf import settings
 from django.http import HttpResponse, FileResponse
-from django_irods import icommands
-from hs_core.views.utils import authorize
-
 from rest_framework.decorators import api_view
+
+from hs_core.views.utils import authorize
+from hs_core.hydroshare.hs_bagit import create_bag_by_irods
 
 @api_view(['GET'])
 def download(request, path, *args, **kwargs):
@@ -37,6 +40,14 @@ def download(request, path, *args, **kwargs):
     else:
         raise KeyError('settings must have IRODS_GLOBAL_SESSION set if there is no environment object')
 
+    # do on-demand bag creation
+    bag_modified = False
+    if request:
+        bag_modified = request.session.get('bag_modified', False)
+        if 'bag_modified' in request.session:
+            del request.session['bag_modified']
+    if bag_modified:
+        create_bag_by_irods(res_id)
     options = ('-',) # we're redirecting to stdout.
     proc = session.run_safe('iget', None, path, *options)
     response = FileResponse(proc.stdout, content_type='application-x/octet-stream')
