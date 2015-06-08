@@ -38,9 +38,9 @@ class IrodsStorage(Storage):
     def download(self, name):
         return self._open(name, mode='rb')
 
-    def runBagitRule(self, rule_name, input):
+    def runBagitRule(self, rule_name, input_path, input_resource):
         # SessionException will be raised from run() in icommands.py
-        self.session.run("irule", None, '-F', rule_name, input)
+        self.session.run("irule", None, '-F', rule_name, input_path, input_resource)
 
     def zipup(self, in_name, out_name):
         self.session.run("imkdir", None, '-p', out_name.rsplit('/',1)[0])
