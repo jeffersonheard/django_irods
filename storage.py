@@ -47,6 +47,47 @@ class IrodsStorage(Storage):
         # SessionException will be raised from run() in icommands.py
         self.session.run("ibun", None, '-cDzip', '-f', out_name, in_name)
 
+    def setAVU(self, name, attName, attVal, attUnit=None):
+        """
+        set AVU on resource collection - this is used for on-demand bagging by indicating
+        whether the resource has been modified via AVU pairs
+
+        Parameters:
+        :param
+        name: the resource collection name to set AVU.
+        attName: the attribute name to set
+        attVal: the attribute value to set
+        attUnit: the attribute Unit to set, default is None, but can be set to indicate additional info
+        """
+
+        # SessionException will be raised from run() in icommands.py
+        if attUnit:
+            self.session.run("imeta", None, 'set', '-C', name, attName, attVal, attUnit)
+        else:
+            self.session.run("imeta", None, 'set', '-C', name, attName, attVal)
+
+    def getAVU(self, name, attName):
+        """
+        set AVU on resource collection - this is used for on-demand bagging by indicating
+        whether the resource has been modified via AVU pairs
+
+        Parameters:
+        :param
+        name: the resource collection name to set AVU.
+        attName: the attribute name to set
+        attVal: the attribute value to set
+        attUnit: the attribute Unit to set, default is None, but can be set to indicate additional info
+        """
+
+        # SessionException will be raised from run() in icommands.py
+        stdout = self.session.run("imeta", None, 'ls', '-C', name, attName)[0].split("\n")
+        ret_att = stdout[1].strip()
+        if ret_att == 'None': # queried attribute does not exist
+            return None
+        else:
+            vals = stdout[2].split(":")
+            return vals[1].strip()
+
     def saveFile(self, from_name, to_name, create_directory = False):
         """
         Parameters:

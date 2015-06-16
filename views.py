@@ -2,6 +2,7 @@
 from . import models as m
 from .icommands import Session, GLOBAL_SESSION
 from django_irods import icommands
+from django_irods.storage import IrodsStorage
 
 from uuid import uuid4
 import os
@@ -41,13 +42,12 @@ def download(request, path, *args, **kwargs):
         raise KeyError('settings must have IRODS_GLOBAL_SESSION set if there is no environment object')
 
     # do on-demand bag creation
-    bag_modified = False
-    if request:
-        bag_modified = request.session.get('bag_modified', False)
-        if 'bag_modified' in request.session:
-            del request.session['bag_modified']
-    if bag_modified:
-        create_bag_by_irods(res_id)
+    istorage = IrodsStorage()
+    bag_modified = istorage.getAVU(res_id, 'bag_modified')
+    if bag_modified == "true":
+        create_bag_by_irods(res_id, istorage)
+        istorage.setAVU(res_id, 'bag_modified', "false")
+
     options = ('-',) # we're redirecting to stdout.
     proc = session.run_safe('iget', None, path, *options)
     response = FileResponse(proc.stdout, content_type='application-x/octet-stream')
