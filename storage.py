@@ -39,10 +39,23 @@ class IrodsStorage(Storage):
         return self._open(name, mode='rb')
 
     def runBagitRule(self, rule_name, input_path, input_resource):
+        """
+        run iRODS bagit rule which generated bag-releated files without bundling
+        :param rule_name: the iRODS rule name to run
+        :param input_path: input parameter to the rule that indicates the collection path to create bag for
+        :param input_resource: input parameter to the rule that indicates the default resource to store generated bag files
+        :return: None
+        """
         # SessionException will be raised from run() in icommands.py
         self.session.run("irule", None, '-F', rule_name, input_path, input_resource)
 
     def zipup(self, in_name, out_name):
+        """
+        run iRODS ibun command to generate zip file for the bag
+        :param in_name: input parameter to indicate the collection path to generate zip
+        :param out_name: the output zipped file name
+        :return: None
+        """
         self.session.run("imkdir", None, '-p', out_name.rsplit('/',1)[0])
         # SessionException will be raised from run() in icommands.py
         self.session.run("ibun", None, '-cDzip', '-f', out_name, in_name)
