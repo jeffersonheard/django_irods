@@ -43,10 +43,15 @@ def download(request, path, *args, **kwargs):
 
     # do on-demand bag creation
     istorage = IrodsStorage()
-    bag_modified = istorage.getAVU(res_id, 'bag_modified')
+    bag_modified = "false"
+    # needs to check whether res_id collection exists before getting/setting AVU on it to accommodate the case
+    # where the very same resource gets deleted by another request when it is getting downloaded
+    if istorage.exists(res_id):
+        bag_modified = istorage.getAVU(res_id, 'bag_modified')
     if bag_modified == "true":
         create_bag_by_irods(res_id, istorage)
-        istorage.setAVU(res_id, 'bag_modified', "false")
+        if istorage.exists(res_id):
+            istorage.setAVU(res_id, 'bag_modified', "false")
 
     options = ('-',) # we're redirecting to stdout.
     proc = session.run_safe('iget', None, path, *options)
