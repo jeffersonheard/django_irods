@@ -1,18 +1,19 @@
 # Create your views here.
-from . import models as m
-from .icommands import Session, GLOBAL_SESSION
-from django_irods import icommands
-from django_irods.storage import IrodsStorage
-
 from uuid import uuid4
 import os
+import mimetypes
 
+from rest_framework.decorators import api_view
+
+from django_irods import icommands
+from django_irods.storage import IrodsStorage
 from django.conf import settings
 from django.http import HttpResponse, FileResponse
-from rest_framework.decorators import api_view
 
 from hs_core.views.utils import authorize
 from hs_core.hydroshare.hs_bagit import create_bag_by_irods
+from . import models as m
+from .icommands import Session, GLOBAL_SESSION
 
 @api_view(['GET'])
 def download(request, path, *args, **kwargs):
@@ -53,11 +54,21 @@ def download(request, path, *args, **kwargs):
         if istorage.exists(res_id):
             istorage.setAVU(res_id, 'bag_modified', "false")
 
+    # obtain mime_type to set content_type
+    mtype = 'application-x/octet-stream'
+    mime_type = mimetypes.guess_type(path)
+    if mime_type[0] is not None:
+        mtype = mime_type[0]
+
+    # retrieve file size to set up Content-Length header
+    stdout = session.run("ils", None, "-l", path)[0].split()
+    flen = int(stdout[3])
+
     options = ('-',) # we're redirecting to stdout.
     proc = session.run_safe('iget', None, path, *options)
-    response = FileResponse(proc.stdout, content_type='application-x/octet-stream')
+    response = FileResponse(proc.stdout, content_type=mtype)
     response['Content-Disposition'] = 'attachment; filename="{name}"'.format(name=path.split('/')[-1])
-
+    response['Content-Length'] = flen
     return response
 
 
