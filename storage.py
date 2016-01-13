@@ -101,6 +101,19 @@ class IrodsStorage(Storage):
             vals = stdout[2].split(":")
             return vals[1].strip()
 
+    def copyFiles(self, src_name, dest_name):
+        """
+        Parameters:
+        :param
+        src_name: the iRODS data-object or collection name to be copied from.
+        dest_name: the iRODS data-object or collection name to be copied to
+        copyFiles() copied an irods data-object (file) or collection (directory) to another data-object or collection
+        """
+
+        if src_name and dest_name:
+            self.session.run("icp", None, '-rf', src_name, dest_name)
+        return
+
     def saveFile(self, from_name, to_name, create_directory = False):
         """
         Parameters:
